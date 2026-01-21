@@ -279,6 +279,43 @@ export default function BingoPage() {
       <header className={styles.header}>
         <h1>Bingo_P</h1>
         <p>Sistema de Gestión de Bingo de Palabras Masivo</p>
+        {!juegoIniciado && !bancosLoading && (
+          <div className={styles.availableLanguages}>
+            <span>Idiomas disponibles:</span>
+            {["SP", "EN", "PT", "DT"].map((lang) => (
+              <span
+                key={lang}
+                className={`${styles.langChip} ${
+                  bancosPalabras[lang]?.size > 0
+                    ? styles.langActive
+                    : styles.langInactive
+                }`}
+              >
+                {lang}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {juegoIniciado && rondas.length > 0 && (
+          <div className={styles.roundsOrder}>
+            <span>Orden de rondas:</span>
+            {rondas.map((lang, idx) => (
+              <span
+                key={lang}
+                className={`${styles.roundChip} ${
+                  idx === rondaIndex && !partidaTerminada
+                    ? styles.roundCurrent
+                    : idx < rondaIndex || partidaTerminada
+                      ? styles.roundCompleted
+                      : styles.roundPending
+                }`}
+              >
+                {idx + 1}. {lang}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       {!juegoIniciado ? (
