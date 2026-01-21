@@ -24,10 +24,12 @@ interface ParseResult {
 export function processInputData(
   text: string,
   bancosPalabras: Record<string, Set<string>>,
+  idsExistentes: Set<string> = new Set(),
 ): ParseResult {
   const lines = text.split(/\r?\n/);
   const cartones: Carton[] = [];
   const errores: string[] = [];
+  const idsEnEstaCarga = new Set<string>();
 
   let jugadorActual = "";
   let lineNumber = 0;
@@ -62,6 +64,20 @@ export function processInputData(
     const id = parts[0];
     if (id.length < 3) {
       errores.push(`Línea ${lineNumber}: ID inválido '${id}'.`);
+      continue;
+    }
+
+    if (idsExistentes.has(id)) {
+      errores.push(
+        `Línea ${lineNumber}: ID '${id}' ya existe en cartones cargados previamente.`,
+      );
+      continue;
+    }
+
+    if (idsEnEstaCarga.has(id)) {
+      errores.push(
+        `Línea ${lineNumber}: ID '${id}' está duplicado en este archivo/texto.`,
+      );
       continue;
     }
 
@@ -104,6 +120,8 @@ export function processInputData(
     }
 
     const palabrasOrdenadas = mergeSort(palabrasRaw);
+
+    idsEnEstaCarga.add(id);
 
     cartones.push({
       id,

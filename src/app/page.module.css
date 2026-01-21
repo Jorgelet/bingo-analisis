@@ -61,6 +61,13 @@
   opacity: 0.6;
 }
 
+.langLimit {
+  font-weight: 400;
+  font-size: 0.7rem;
+  margin-left: 0.25rem;
+  opacity: 0.8;
+}
+
 .roundCurrent {
   background-color: var(--primary-color);
   color: white;

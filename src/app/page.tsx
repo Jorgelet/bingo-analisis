@@ -8,7 +8,11 @@ import {
   binarySearchMark,
   checkWinnersGreedy,
 } from "../utils/algorithms";
-import { processInputData, generateRandomRounds } from "../utils/gameLogic";
+import {
+  processInputData,
+  generateRandomRounds,
+  LIMITES,
+} from "../utils/gameLogic";
 
 const CARTONES_POR_PAGINA = 8;
 
@@ -91,9 +95,11 @@ export default function BingoPage() {
       const text = event.target?.result as string;
       if (!text) return;
 
+      const idsExistentes = new Set(cartones.map((c) => c.id));
       const { cartones: nuevosCartones, errores } = processInputData(
         text,
         bancosPalabras,
+        idsExistentes,
       );
 
       setCartones((prev) => [...prev, ...nuevosCartones]);
@@ -118,9 +124,11 @@ export default function BingoPage() {
       return;
     }
 
+    const idsExistentes = new Set(cartones.map((c) => c.id));
     const { cartones: nuevosCartones, errores } = processInputData(
       manualInputText,
       bancosPalabras,
+      idsExistentes,
     );
 
     if (errores.length > 0) {
@@ -281,8 +289,8 @@ export default function BingoPage() {
         <p>Sistema de Gestión de Bingo de Palabras Masivo</p>
         {!juegoIniciado && !bancosLoading && (
           <div className={styles.availableLanguages}>
-            <span>Idiomas disponibles:</span>
-            {["SP", "EN", "PT", "DT"].map((lang) => (
+            <span>Idiomas disponibles (máx. palabras):</span>
+            {(["SP", "EN", "PT", "DT"] as const).map((lang) => (
               <span
                 key={lang}
                 className={`${styles.langChip} ${
@@ -290,8 +298,10 @@ export default function BingoPage() {
                     ? styles.langActive
                     : styles.langInactive
                 }`}
+                title={`Máximo ${LIMITES[lang]} palabras por cartón`}
               >
                 {lang}
+                <span className={styles.langLimit}>máx {LIMITES[lang]}</span>
               </span>
             ))}
           </div>
