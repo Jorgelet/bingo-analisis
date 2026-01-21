@@ -253,6 +253,27 @@ export default function BingoPage() {
   const siguienteIdioma = rondas[rondaIndex + 1];
   const esUltimaRonda = rondaIndex >= rondas.length - 1;
 
+  const renderErrorItem = (error: string) => {
+    const idMatch = error.match(/\(([A-Z]{2}\d+)\)/);
+    if (idMatch && error.includes("Palabras no permitidas")) {
+      const idioma = idMatch[1].substring(0, 2);
+      return (
+        <>
+          {error}{" "}
+          <a
+            href={`/banco_${idioma}.txt`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.errorLink}
+          >
+            Ver banco de {idioma}
+          </a>
+        </>
+      );
+    }
+    return error;
+  };
+
   return (
     <main className={styles.container}>
       <header className={styles.header}>
@@ -357,7 +378,7 @@ export default function BingoPage() {
                       key={`${idx}-${err.substring(0, 10)}`}
                       className={styles.uploadErrorItem}
                     >
-                      {err}
+                      {renderErrorItem(err)}
                     </li>
                   ))}
                 </ul>

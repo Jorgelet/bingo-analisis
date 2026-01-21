@@ -363,6 +363,17 @@
   font-size: 0.85rem;
 }
 
+.uploadErrorItem a {
+  color: #b45309;
+  text-decoration: underline;
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.uploadErrorItem a:hover {
+  color: #92400e;
+}
+
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
