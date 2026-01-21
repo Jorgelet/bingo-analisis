@@ -37,7 +37,12 @@ export function processInputData(
     const line = rawLine.trim();
     if (!line) continue;
 
-    if (line.startsWith("J") && line.length < 10 && !line.includes(" ")) {
+    if (
+      line.startsWith("J") &&
+      line.length > 1 &&
+      line.length < 10 &&
+      !line.includes(" ")
+    ) {
       jugadorActual = line;
       continue;
     }
