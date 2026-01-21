@@ -62,8 +62,23 @@ export function processInputData(
     }
 
     const id = parts[0];
-    if (id.length < 3) {
-      errores.push(`Línea ${lineNumber}: ID inválido '${id}'.`);
+
+    const idiomaCode = id.substring(0, 2);
+    if (
+      idiomaCode !== "SP" &&
+      idiomaCode !== "EN" &&
+      idiomaCode !== "PT" &&
+      idiomaCode !== "DT"
+    ) {
+      errores.push(`Línea ${lineNumber}: Idioma desconocido en ID '${id}'.`);
+      continue;
+    }
+
+    const numericPart = id.substring(2);
+    if (numericPart.length !== 6 || !/^\d{6}$/.test(numericPart)) {
+      errores.push(
+        `Línea ${lineNumber}: ID '${id}' inválido. Debe tener exactamente 6 dígitos numéricos después del código de idioma (ej: ${idiomaCode}123456).`,
+      );
       continue;
     }
 
@@ -78,17 +93,6 @@ export function processInputData(
       errores.push(
         `Línea ${lineNumber}: ID '${id}' está duplicado en este archivo/texto.`,
       );
-      continue;
-    }
-
-    const idiomaCode = id.substring(0, 2);
-    if (
-      idiomaCode !== "SP" &&
-      idiomaCode !== "EN" &&
-      idiomaCode !== "PT" &&
-      idiomaCode !== "DT"
-    ) {
-      errores.push(`Línea ${lineNumber}: Idioma desconocido en ID '${id}'.`);
       continue;
     }
 
