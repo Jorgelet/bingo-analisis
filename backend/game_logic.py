@@ -40,9 +40,7 @@ LIMITES: dict[Idioma, int] = {
 
 
 def process_input_data(
-    text: str,
-    word_banks: dict[str, set[str]],
-    existing_ids: set[str] | None = None
+    text: str, word_banks: dict[str, set[str]], existing_ids: set[str] | None = None
 ) -> tuple[list[Carton], list[str]]:
     """
     Procesa texto de entrada y extrae cartones de bingo validados.
@@ -147,6 +145,20 @@ def process_input_data(
 
         idioma: Idioma = language_code  # type: ignore
         raw_words = parts[1:]
+        # Verificar que no haya palabras repetidas en el mismo cartón
+        seen_words: set[str] = set()
+        duplicate_words: set[str] = set()
+        for w in raw_words:
+            if w in seen_words:
+                duplicate_words.add(w)
+            else:
+                seen_words.add(w)
+
+        if duplicate_words:
+            errores.append(
+                f"Línea {line_number} ({card_id}): Palabras repetidas en el cartón: [{', '.join(sorted(duplicate_words))}]"
+            )
+            continue
         max_allowed = LIMITES[idioma]
 
         # Validar límite de palabras

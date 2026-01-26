@@ -98,6 +98,20 @@ export function processInputData(
 
     const idioma = idiomaCode as Idioma;
     const palabrasRaw = parts.slice(1);
+    // Verificar que no haya palabras duplicadas en el mismo cartón
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const p of palabrasRaw) {
+      if (seen.has(p)) dupes.add(p);
+      else seen.add(p);
+    }
+
+    if (dupes.size > 0) {
+      errores.push(
+        `Línea ${lineNumber} (${id}): Palabras repetidas en el cartón: [${[...dupes].sort().join(", ")}]`,
+      );
+      continue;
+    }
     const maxPermitido = LIMITES[idioma];
 
     if (palabrasRaw.length > maxPermitido) {
