@@ -33,7 +33,7 @@ export default function BancoPage() {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/word-banks`);
+        const response = await fetch(`${API_BASE_URL}/api/word-banks`);
         if (!response.ok) {
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }

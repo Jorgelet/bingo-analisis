@@ -49,7 +49,7 @@ async function apiRequest<T>(
     options.body = JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+  const response = await fetch(`${API_BASE_URL}/api${endpoint}`, options);
 
   if (!response.ok) {
     throw new Error(`API Error: ${response.status} ${response.statusText}`);
