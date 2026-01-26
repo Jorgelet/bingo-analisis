@@ -1,0 +1,11 @@
+# Proyecto Final - Bingo de Palabras
+# Dependencias del servidor Python
+
+# Framework web asíncrono
+fastapi>=0.109.0
+
+# Servidor ASGI para ejecutar FastAPI
+uvicorn[standard]>=0.27.0
+
+# Validación de datos (incluido con FastAPI, pero lo especificamos)
+pydantic>=2.5.0

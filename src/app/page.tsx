@@ -1,20 +1,62 @@
 "use client";
 
-import { useState, useRef, type ChangeEvent, useEffect } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
+
 import styles from "./page.module.css";
-import {
-  type Carton,
-  type Idioma,
-  binarySearchMark,
-  checkWinnersGreedy,
-} from "../utils/algorithms";
-import {
-  processInputData,
-  generateRandomRounds,
-  LIMITES,
-} from "../utils/gameLogic";
+
+const API_BASE_URL = "http://localhost:8000/api";
+
+// Tipos de datos (equivalentes a los modelos de Python)
+type Idioma = "SP" | "EN" | "PT" | "DT";
+
+interface Carton {
+  id: string;
+  jugador: string;
+  idioma: Idioma;
+  palabras: string[];
+  marcadas: boolean[];
+  total_aciertos: number;
+  limite_palabras: number;
+  ya_gano?: boolean;
+}
+
+// Límites máximos de palabras por idioma (respaldo local)
+const LIMITES: Record<Idioma, number> = {
+  SP: 24,
+  EN: 14,
+  PT: 20,
+  DT: 10,
+};
 
 const CARTONES_POR_PAGINA = 8;
+
+/**
+ * Helper para hacer requests a la API Python
+ */
+async function apiRequest<T>(
+  endpoint: string,
+  method: "GET" | "POST" = "GET",
+  body?: unknown,
+): Promise<T> {
+  const options: RequestInit = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
 
 export default function BingoPage() {
   const [cartones, setCartones] = useState<Carton[]>([]);
@@ -44,8 +86,11 @@ export default function BingoPage() {
 
   const [paginaActual, setPaginaActual] = useState(1);
 
+  const [apiError, setApiError] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cargar bancos de palabras desde archivos locales (para mostrar en UI)
   useEffect(() => {
     const loadBancos = async () => {
       const idiomas = ["SP", "EN", "PT", "DT"];
@@ -57,7 +102,7 @@ export default function BingoPage() {
             const response = await fetch(`/banco_${lang}.txt`);
             if (response.ok) {
               const text = await response.text();
-              const cleanText = text.replace(/[\[\]']/g, "");
+              const cleanText = text.replace(/[[\]']/g, "");
               const words = cleanText.split(",").map((w) => w.trim());
               nuevosBancos[lang] = new Set(words);
             } else {
@@ -76,6 +121,32 @@ export default function BingoPage() {
     loadBancos();
   }, []);
 
+  /**
+   * Procesa cartones usando la API Python
+   * Utiliza Merge Sort (implementado en Python) para ordenar las palabras
+   */
+  const processCardsViaAPI = async (
+    text: string,
+    existingIds: string[],
+  ): Promise<{ cartones: Carton[]; errores: string[] }> => {
+    try {
+      const response = await apiRequest<{
+        cartones: Carton[];
+        errores: string[];
+      }>("/process-cards", "POST", {
+        text,
+        existing_ids: existingIds,
+      });
+      setApiError(null);
+      return response;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error de conexión con la API";
+      setApiError(message);
+      throw error;
+    }
+  };
+
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -88,32 +159,38 @@ export default function BingoPage() {
 
     setLoading(true);
     setErroresCarga([]);
+    setApiError(null);
 
     const reader = new FileReader();
 
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string;
       if (!text) return;
 
-      const idsExistentes = new Set(cartones.map((c) => c.id));
-      const { cartones: nuevosCartones, errores } = processInputData(
-        text,
-        bancosPalabras,
-        idsExistentes,
-      );
+      try {
+        const existingIds = cartones.map((c) => c.id);
+        const { cartones: nuevosCartones, errores } = await processCardsViaAPI(
+          text,
+          existingIds,
+        );
 
-      setCartones((prev) => [...prev, ...nuevosCartones]);
-      setErroresCarga(errores);
-      setLoading(false);
-
-      if (fileInputRef.current) fileInputRef.current.value = "";
+        setCartones((prev) => [...prev, ...nuevosCartones]);
+        setErroresCarga(errores);
+      } catch {
+        // Error ya manejado en processCardsViaAPI
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
     };
 
     reader.readAsText(file);
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = async () => {
     setManualError(null);
+    setApiError(null);
+
     if (bancosLoading) {
       setManualError("Espera a que los diccionarios carguen.");
       return;
@@ -124,33 +201,47 @@ export default function BingoPage() {
       return;
     }
 
-    const idsExistentes = new Set(cartones.map((c) => c.id));
-    const { cartones: nuevosCartones, errores } = processInputData(
-      manualInputText,
-      bancosPalabras,
-      idsExistentes,
-    );
+    setLoading(true);
 
-    if (errores.length > 0) {
-      setErroresCarga(errores);
-      if (nuevosCartones.length === 0) {
-        setManualError(
-          "No se pudieron procesar cartones válidos. Revisa los errores.",
-        );
-        return;
+    try {
+      const existingIds = cartones.map((c) => c.id);
+      const { cartones: nuevosCartones, errores } = await processCardsViaAPI(
+        manualInputText,
+        existingIds,
+      );
+
+      if (errores.length > 0) {
+        setErroresCarga(errores);
+        if (nuevosCartones.length === 0) {
+          setManualError(
+            "No se pudieron procesar cartones válidos. Revisa los errores.",
+          );
+          setLoading(false);
+          return;
+        }
+      } else {
+        setErroresCarga([]);
       }
-    } else {
-      setErroresCarga([]);
-    }
 
-    setCartones((prev) => [...prev, ...nuevosCartones]);
-    setManualInputText("");
+      setCartones((prev) => [...prev, ...nuevosCartones]);
+      setManualInputText("");
+    } catch {
+      setManualError("Error al conectar con el servidor Python.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleStartGame = () => {
+  /**
+   * Inicia el juego generando rondas aleatorias usando la API Python
+   * Utiliza Fisher-Yates Shuffle (implementado en Python)
+   */
+  const handleStartGame = async () => {
     if (cartones.length === 0) return;
 
-    const idiomasActivos = Array.from(new Set(cartones.map((c) => c.idioma)));
+    const idiomasActivos = Array.from(
+      new Set(cartones.map((c) => c.idioma)),
+    ) as Idioma[];
 
     if (idiomasActivos.length === 0) {
       alert(
@@ -159,31 +250,51 @@ export default function BingoPage() {
       return;
     }
 
-    const randomRounds = generateRandomRounds(idiomasActivos);
-    setRondas(randomRounds);
-    setRondaIndex(0);
-    setJuegoIniciado(true);
-    setHistorialPalabras([]);
-    setGanadores([]);
-    setErrorPalabra(null);
-    setMensajeRonda(null);
-    setPaginaActual(1);
-    setPartidaTerminada(false);
+    try {
+      // Generar rondas aleatorias usando la API Python (Fisher-Yates)
+      const response = await apiRequest<{ rondas: Idioma[] }>(
+        "/generate-rounds",
+        "POST",
+        { idiomas_disponibles: idiomasActivos },
+      );
+
+      setRondas(response.rondas);
+      setRondaIndex(0);
+      setJuegoIniciado(true);
+      setHistorialPalabras([]);
+      setGanadores([]);
+      setErrorPalabra(null);
+      setMensajeRonda(null);
+      setPaginaActual(1);
+      setPartidaTerminada(false);
+      setApiError(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error de conexión con la API";
+      setApiError(message);
+    }
   };
 
   const idiomaActual = !partidaTerminada ? rondas[rondaIndex] : null;
   const rondaBloqueada = ganadores.length > 0;
 
-  const handleCantarPalabra = () => {
+  /**
+   * Canta una palabra usando la API Python
+   * Utiliza Binary Search (implementado en Python) para buscar en cartones
+   * Utiliza Greedy Algorithm (implementado en Python) para detectar ganadores
+   */
+  const handleCantarPalabra = async () => {
     if (!idiomaActual || rondaBloqueada) return;
 
     setErrorPalabra(null);
     setMensajeRonda(null);
+    setApiError(null);
 
     if (!palabraActual.trim()) return;
 
     const palabraNormalizada = palabraActual.trim();
 
+    // Validar palabra contra banco local (para feedback rápido)
     const bancoActual = bancosPalabras[idiomaActual];
     if (bancoActual && !bancoActual.has(palabraNormalizada)) {
       setErrorPalabra(
@@ -192,37 +303,52 @@ export default function BingoPage() {
       return;
     }
 
-    const nuevosCartones = [...cartones];
+    try {
+      // 1. Llamar a la API para marcar la palabra (usa Binary Search)
+      const callResponse = await apiRequest<{
+        cartones: Carton[];
+        found_in_any: boolean;
+      }>("/call-word", "POST", {
+        cartones,
+        palabra: palabraNormalizada,
+        idioma_actual: idiomaActual,
+      });
 
-    for (const carton of nuevosCartones) {
-      if (carton.idioma === idiomaActual && !carton.yaGano) {
-        binarySearchMark(carton, palabraNormalizada);
+      // 2. Verificar ganadores (usa Greedy Algorithm)
+      const winnersResponse = await apiRequest<{ ganadores: Carton[] }>(
+        "/check-winners",
+        "POST",
+        {
+          cartones: callResponse.cartones.filter(
+            (c) => c.idioma === idiomaActual && !c.ya_gano,
+          ),
+        },
+      );
+
+      // 3. Actualizar estado con cartones marcados
+      let updatedCartones = callResponse.cartones;
+
+      if (winnersResponse.ganadores.length > 0) {
+        // Marcar ganadores
+        const winnerIds = new Set(winnersResponse.ganadores.map((g) => g.id));
+        updatedCartones = updatedCartones.map((c) =>
+          winnerIds.has(c.id) ? { ...c, ya_gano: true } : c,
+        );
+
+        setGanadores(winnersResponse.ganadores);
+        setMensajeRonda(null);
+      } else {
+        setMensajeRonda("No hubo cartones ganadores en esta ronda.");
       }
+
+      setCartones(updatedCartones);
+      setHistorialPalabras((prev) => [palabraNormalizada, ...prev]);
+      setPalabraActual("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error de conexión con la API";
+      setApiError(message);
     }
-
-    const candidatosValidos = nuevosCartones.filter(
-      (c) => c.idioma === idiomaActual && !c.yaGano,
-    );
-
-    const nuevosGanadores = checkWinnersGreedy(candidatosValidos);
-
-    if (nuevosGanadores.length > 0) {
-      const idsGanadores = new Set(nuevosGanadores.map((g) => g.id));
-      for (const carton of nuevosCartones) {
-        if (idsGanadores.has(carton.id)) {
-          carton.yaGano = true;
-        }
-      }
-
-      setGanadores(nuevosGanadores);
-      setMensajeRonda(null);
-    } else {
-      setMensajeRonda("No hubo cartones ganadores en esta ronda.");
-    }
-
-    setCartones(nuevosCartones);
-    setHistorialPalabras((prev) => [palabraNormalizada, ...prev]);
-    setPalabraActual("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -287,6 +413,31 @@ export default function BingoPage() {
       <header className={styles.header}>
         <h1>Bingo_P</h1>
         <p>Sistema de Gestión de Bingo de Palabras Masivo</p>
+        <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+          Backend: Python FastAPI | Algoritmos: Merge Sort, Binary Search,
+          Greedy
+        </p>
+
+        {apiError && (
+          <div
+            style={{
+              background: "#fee2e2",
+              color: "#dc2626",
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              marginTop: "0.5rem",
+              fontSize: "0.85rem",
+            }}
+          >
+            Error de API: {apiError}
+            <br />
+            <small>
+              Asegúrate de que el servidor Python esté ejecutándose en el puerto
+              8000
+            </small>
+          </div>
+        )}
+
         {!juegoIniciado && !bancosLoading && (
           <div className={styles.availableLanguages}>
             <span>Idiomas disponibles (máx. palabras):</span>
@@ -373,7 +524,7 @@ export default function BingoPage() {
                   onChange={handleFileUpload}
                   className={styles.fileInput}
                 />
-                {loading && <p>Procesando cartones...</p>}
+                {loading && <p>Procesando cartones (API Python)...</p>}
               </>
             ) : (
               <div className={styles.manualForm}>
@@ -407,9 +558,9 @@ export default function BingoPage() {
                   onClick={handleManualSubmit}
                   className={styles.btnSecondary}
                   style={{ alignSelf: "flex-start" }}
-                  disabled={bancosLoading}
+                  disabled={bancosLoading || loading}
                 >
-                  Procesar Datos
+                  {loading ? "Procesando..." : "Procesar Datos"}
                 </button>
               </div>
             )}
@@ -417,7 +568,7 @@ export default function BingoPage() {
             {erroresCarga.length > 0 && (
               <div className={styles.uploadReport}>
                 <div className={styles.uploadReportSummary}>
-                  ⚠️ {erroresCarga.length} problemas encontrados:
+                  {erroresCarga.length} problemas encontrados:
                 </div>
                 <ul className={styles.uploadErrorList}>
                   {erroresCarga.map((err, idx) => (
@@ -440,7 +591,7 @@ export default function BingoPage() {
                   fontWeight: 500,
                 }}
               >
-                ✔ {cartones.length} cartones cargados en total.
+                {cartones.length} cartones cargados en total.
               </p>
             )}
           </div>
@@ -459,7 +610,7 @@ export default function BingoPage() {
         <section className={styles.gameSection}>
           {ganadores.length > 0 ? (
             <div className={styles.winnerAlert}>
-              <h2>¡TENEMOS GANADORES! 🎉</h2>
+              <h2>TENEMOS GANADORES!</h2>
               <div className={styles.winnerList}>
                 {ganadores.map((g) => (
                   <div key={g.id} className={styles.winnerItem}>
@@ -480,13 +631,13 @@ export default function BingoPage() {
                 >
                   {esUltimaRonda
                     ? "Finalizar Partida"
-                    : `Comenzar Ronda de ${siguienteIdioma} →`}
+                    : `Comenzar Ronda de ${siguienteIdioma}`}
                 </button>
               </div>
             </div>
           ) : (
             mensajeRonda && (
-              <div className={styles.roundInfoMessage}>ℹ️ {mensajeRonda}</div>
+              <div className={styles.roundInfoMessage}>{mensajeRonda}</div>
             )
           )}
 
@@ -540,7 +691,7 @@ export default function BingoPage() {
                     />
                     {errorPalabra && (
                       <div className={styles.errorMessage}>
-                        ⚠️ {errorPalabra}
+                        {errorPalabra}
                         <a
                           href={`/banco_${idiomaActual}.txt`}
                           target="_blank"
@@ -644,7 +795,7 @@ export default function BingoPage() {
                       <span className={styles.cartonId}>{carton.id}</span>
                     </div>
                     <span className={styles.cartonProgress}>
-                      {carton.totalAciertos} / {carton.limitePalabras}
+                      {carton.total_aciertos} / {carton.limite_palabras}
                     </span>
                   </div>
                   <div className={styles.wordsGrid}>
@@ -673,7 +824,7 @@ export default function BingoPage() {
                   onClick={() => cambiarPagina(-1)}
                   disabled={paginaActual === 1}
                 >
-                  ← Anterior
+                  Anterior
                 </button>
                 <span className={styles.pageIndicator}>
                   Página {paginaActual} de {totalPaginas}
@@ -684,7 +835,7 @@ export default function BingoPage() {
                   onClick={() => cambiarPagina(1)}
                   disabled={paginaActual === totalPaginas}
                 >
-                  Siguiente →
+                  Siguiente
                 </button>
               </div>
             )}
