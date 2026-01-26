@@ -799,7 +799,7 @@ export default function BingoPage() {
                   <div className={styles.wordsGrid}>
                     {carton.palabras.map((palabra, idx) => (
                       <span
-                        key={`${carton.id}-${palabra}`}
+                        key={crypto.randomUUID()}
                         className={`${styles.wordItem} ${
                           carton.marcadas[idx]
                             ? styles.wordMarked
