@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import styles from "../../page.module.css";
 
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Idioma = "SP" | "EN" | "PT" | "DT";
 
