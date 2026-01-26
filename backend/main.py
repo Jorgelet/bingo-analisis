@@ -57,10 +57,9 @@ def load_word_banks() -> dict[str, set[str]]:
     banks: dict[str, set[str]] = {}
     languages = ["SP", "EN", "PT", "DT"]
 
-    # Buscar archivos en el directorio word_banks o en public del proyecto
+    # Buscar archivos en el directorio word_banks
     base_paths = [
         Path(__file__).parent / "word_banks",
-        Path(__file__).parent.parent / "public",
     ]
 
     for lang in languages:
@@ -129,6 +128,7 @@ async def root():
             "/api/generate-rounds",
             "/api/validate-word",
             "/api/word-limits",
+            "/api/word-banks",
         ],
     }
 
@@ -137,6 +137,21 @@ async def root():
 async def get_word_limits():
     """Retorna los límites de palabras por idioma."""
     return {"limites": LIMITES}
+
+
+@app.get("/api/word-banks")
+async def get_word_banks():
+    """
+    Retorna todos los bancos de palabras cargados.
+    
+    Cada banco se retorna como una lista de palabras para facilitar
+    su uso en el frontend.
+    """
+    return {
+        "bancos": {
+            lang: list(words) for lang, words in word_banks.items()
+        }
+    }
 
 
 @app.post("/api/process-cards", response_model=ProcessCardsResponse)

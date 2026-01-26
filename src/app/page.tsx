@@ -90,28 +90,26 @@ export default function BingoPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cargar bancos de palabras desde archivos locales (para mostrar en UI)
+  // Cargar bancos de palabras desde el backend Python
   useEffect(() => {
     const loadBancos = async () => {
-      const idiomas = ["SP", "EN", "PT", "DT"];
-      const nuevosBancos: Record<string, Set<string>> = {};
-
       try {
-        await Promise.all(
-          idiomas.map(async (lang) => {
-            const response = await fetch(`/banco_${lang}.txt`);
-            if (response.ok) {
-              const text = await response.text();
-              const cleanText = text.replace(/[[\]']/g, "");
-              const words = cleanText.split(",").map((w) => w.trim());
-              nuevosBancos[lang] = new Set(words);
-            } else {
-              nuevosBancos[lang] = new Set();
-            }
-          }),
-        );
+        const response = await apiRequest<{
+          bancos: Record<string, string[]>;
+        }>("/word-banks", "GET");
+
+        const nuevosBancos: Record<string, Set<string>> = {};
+        for (const [lang, words] of Object.entries(response.bancos)) {
+          nuevosBancos[lang] = new Set(words);
+        }
         setBancosPalabras(nuevosBancos);
-      } catch {
+        setApiError(null);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Error de conexión con la API";
+        setApiError(message);
         setBancosPalabras({});
       } finally {
         setBancosLoading(false);
@@ -395,7 +393,7 @@ export default function BingoPage() {
         <>
           {error}{" "}
           <a
-            href={`/banco_${idioma}.txt`}
+            href={`/banco/${idioma}`}
             target="_blank"
             rel="noopener noreferrer"
             className={styles.errorLink}
@@ -693,7 +691,7 @@ export default function BingoPage() {
                       <div className={styles.errorMessage}>
                         {errorPalabra}
                         <a
-                          href={`/banco_${idiomaActual}.txt`}
+                          href={`/banco/${idiomaActual}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={styles.errorLink}
