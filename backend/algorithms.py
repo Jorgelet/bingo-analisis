@@ -4,33 +4,9 @@ Algoritmos y Estructuras de Datos
 
 Autores:
     - Jorge del Campo
+    - Salvador Muñoz
 
-Referencias:
-    - Merge Sort: Cormen, T. H., Leiserson, C. E., Rivest, R. L., & Stein, C.
-      "Introduction to Algorithms", 3rd Edition, MIT Press, 2009.
-      Capítulo 2.3: Designing algorithms (páginas 30-37)
-
-    - Binary Search: Knuth, D. E. "The Art of Computer Programming",
-      Volume 3: Sorting and Searching, 2nd Edition, Addison-Wesley, 1998.
-      Sección 6.2.1: Searching an ordered table
-
-    - Greedy Algorithm: Diseño propio basado en estrategia voraz.
-      Referencia conceptual: Cormen et al., Capítulo 16: Greedy Algorithms
-
-Modificaciones realizadas:
-    - merge_sort (líneas 51-75): Implementación estándar del algoritmo sin
-      modificaciones significativas respecto a la versión del libro de Cormen.
-
-    - binary_search_mark (líneas 78-114): Adaptación del algoritmo de búsqueda
-      binaria clásico para incluir funcionalidad de marcado. Se agregó:
-      * Verificación de marcado previo (línea 99)
-      * Actualización del contador de aciertos (línea 101)
-      * Retorno de booleano indicando si se encontró la palabra
-
-    - check_winners_greedy (líneas 117-153): Implementación original utilizando
-      estrategia voraz (greedy). Optimización con early-break: una vez que se
-      encuentra un cartón que no ha completado todas sus palabras, se detiene
-      la búsqueda ya que los siguientes tendrán igual o más palabras faltantes.
+    
 """
 
 from models import Carton
@@ -40,8 +16,12 @@ def merge_sort(arr: list[str]) -> list[str]:
     """
     Ordena un arreglo de strings usando el algoritmo Merge Sort.
 
-    Complejidad temporal: O(n log n)
-    Complejidad espacial: O(n)
+    Merge Sort: Cormen, T. H., Leiserson, C. E., Rivest, R. L., & Stein, C.
+      "Introduction to Algorithms", 3rd Edition, MIT Press, 2009.
+      Capítulo 2.3: Designing algorithms (páginas 30-37)
+
+    Implementación estándar del algoritmo sin modificaciones significativas respecto a la versión del libro de Cormen.
+
 
     El algoritmo divide recursivamente el arreglo en mitades hasta tener
     subarreglos de un solo elemento, luego los combina de forma ordenada.
@@ -108,8 +88,9 @@ def binary_search_mark(carton: dict, palabra: str) -> bool:
     """
     Busca una palabra en un cartón usando Búsqueda Binaria y la marca si existe.
 
-    Complejidad temporal: O(log n) donde n es el número de palabras en el cartón
-    Complejidad espacial: O(1)
+     - Binary Search: Knuth, D. E. "The Art of Computer Programming",
+      Volume 3: Sorting and Searching, 2nd Edition, Addison-Wesley, 1998.
+      Sección 6.2.1: Searching an ordered table
 
     MODIFICACIÓN RESPECTO AL ALGORITMO CLÁSICO:
     Además de buscar, esta función modifica el estado del cartón:
@@ -159,18 +140,9 @@ def check_winners_greedy(cartones: list[dict]) -> list[dict]:
     """
     Detecta cartones ganadores usando una estrategia Greedy (voraz).
 
-    Complejidad temporal: O(n log n) por el ordenamiento, donde n es número de cartones
-    Complejidad espacial: O(n) para la copia de la lista
+      - Greedy Algorithm: Diseño propio basado en estrategia voraz.
+      Referencia conceptual: Cormen et al., Capítulo 16: Greedy Algorithms
 
-    ESTRATEGIA GREEDY:
-    1. Ordenar cartones por "distancia a ganar" (palabras faltantes) de menor a mayor
-    2. Seleccionar cartones que tienen 0 palabras faltantes (ganadores)
-    3. OPTIMIZACIÓN EARLY-BREAK: Detener búsqueda al encontrar primer no-ganador
-       (los siguientes tendrán igual o más palabras faltantes por el ordenamiento)
-
-    Esta estrategia es "greedy" porque toma decisiones localmente óptimas:
-    procesa primero los cartones más cercanos a ganar, garantizando encontrar
-    todos los ganadores de manera eficiente.
 
     Args:
         cartones: Lista de diccionarios representando cartones
